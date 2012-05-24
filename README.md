@@ -4,6 +4,9 @@ Redis Utils
 A collection of utilities for node-redis, such as a hashing frontend and
 queue interface.
 
+    18:35 < godsflaw> it's the node bits one needs for using redis as a job processing queue
+
+
 Installation
 ============
 
