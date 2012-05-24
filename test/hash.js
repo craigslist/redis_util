@@ -5,7 +5,8 @@ exports.basic = function (test) {
     test.expect(1);
     var redis_hash = new redis_util.RedisHash(cluster);
     redis_hash.on('error', function (message) {
-        redis_hash.all('end');
+        console.log(message);
+        redis_hash.end();
         test.done();
     });
     setTimeout(function () {

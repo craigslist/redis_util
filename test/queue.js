@@ -6,6 +6,7 @@ exports.sync_queue = function (test) {
     var client = new redis_util.RedisQueue('sync_queue', cluster);
     var worker = new redis_util.RedisQueue('sync_queue', cluster);
     var on_error = function (message) {
+        console.log(message);
         client.end();
         worker.end();
         test.done();
@@ -17,13 +18,11 @@ exports.sync_queue = function (test) {
         test.equal(data, 'payload');
         next('Result: ' + key + data);
     });
-    client.on('ready', function () {
-        client.sync('payload', 12345, function (result) {
-            test.equal(result, 'Result: 12345payload');
-            client.quit();
-            worker.end();
-            test.done();
-        });
+    client.sync('payload', 12345, function (error, result) {
+        test.equal(result, 'Result: 12345payload');
+        client.quit();
+        worker.end();
+        test.done();
     });
 };
 
@@ -32,6 +31,7 @@ exports.async_queue = function (test) {
     var client = new redis_util.RedisQueue('async_queue', cluster);
     var worker = new redis_util.RedisQueue('async_queue', cluster);
     var on_error = function (message) {
+        console.log(message);
         client.end();
         worker.end();
         test.done();
@@ -45,7 +45,5 @@ exports.async_queue = function (test) {
         worker.end();
         test.done();
     });
-    client.on('ready', function () {
-        client.async('payload', 12345);
-    });
+    client.async('payload', 12345);
 };

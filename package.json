@@ -12,6 +12,9 @@
         "type": "git",
         "url": "http://github.com/godsflaw/redis_util.git"
     },
+    "dependencies": {
+       "redis" : ">= 0.7.2"
+    },
     "licenses": [ {
        "type": "Apache2",
        "url": "https://github.com/godsflaw/diablow/blob/master/LICENSE"

@@ -51,14 +51,33 @@ RedisHash.prototype.all = function (command, args, callback) {
         this.servers[x][command].apply(this.servers[x], args);
 }
 
+RedisHash.prototype.end = function () {
+    for (var x = 0; x < this.servers.length; x++)
+    {
+        this.servers[x].end();
+        // This is needed because the redis module clears stream event
+        // handlers before calling end on the stream, and 'error' can still
+        // be emitted.
+        this.servers[x].stream.on('error', function () {});
+    }
+}
+
 function RedisQueue(queue, servers, max_servers) {
     this.hash = new RedisHash(servers, max_servers);
     var self = this;
-    this.hash.on('error', function (message) { self.emit('error', message); });
-    this.hash.on('ready', function () { self.emit('ready'); });
+    this.hash.on('error', function (message) {
+        self.emit('error', message);
+        self.run_callback(message);
+    });
+    this.hash.on('ready', function () {
+        self.emit('ready');
+        self.flush();
+    });
     this.queue = queue;
     this.data = queue + '-data';
     this.broken = queue + '-broken';
+    this.pending = [];
+    this.running = false;
     events.EventEmitter.call(this);
 }
 
@@ -69,36 +88,34 @@ RedisQueue.prototype.quit = function () {
 }
 
 RedisQueue.prototype.end = function () {
-    this.hash.all('end');
+    this.hash.end();
 }
 
 RedisQueue.prototype.async = function (value, key, callback) {
-    if (key == null || key == undefined)
-        key = Math.random() * 4294967296;
-    this._async(value, key, this.hash.getServers(key), callback);
+    this.pending.push([this._async, value, key, callback]);
+    this.flush();
 }
 
-RedisQueue.prototype._async = function (value, key, servers, callback) {
+RedisQueue.prototype._async = function (value, key, servers) {
     if (servers.length == 0) {
-        this.emit('error', new Error('No servers available for key'));
+        this.run_callback('No servers available for key');
         return;
     }
-    server = servers.splice(0, 1)[0];
+    var server = servers.shift();
     var self = this;
     server.hexists(this.data, key, function (err, reply) {
         if (err)
-            self._async(value, key, servers, callback);
+            self._async(value, key, servers);
         else {
             server.hset(self.data, key, value, function (err, reply) {
                 if (err)
-                    self._async(value, key, servers, callback);
+                    self._async(value, key, servers);
             });
             if (!reply) {
                 server.lpush(self.queue, key, function (err, reply) {
                     if (err)
-                        self._async(value, key, servers, callback);
-                    else if (callback)
-                        callback();
+                        self._async(value, key, servers);
+                    self.run_callback();
                 });
             }
         }
@@ -106,44 +123,68 @@ RedisQueue.prototype._async = function (value, key, servers, callback) {
 }
 
 RedisQueue.prototype.sync = function (value, key, callback) {
-    if (key == null || key == undefined)
-        key = Math.random() * 4294967296;
-    this._sync(value, key, this.hash.getServers(key), callback);
+    this.pending.push([this._sync, value, key, callback]);
+    this.flush();
 }
 
-RedisQueue.prototype._sync = function (value, key, servers, callback) {
+RedisQueue.prototype._sync = function (value, key, servers) {
     if (servers.length == 0) {
-        this.emit('error', new Error('No servers available for key'));
+        this.run_callback('No servers available for key');
         return;
     }
-    var server = servers.splice(0, 1)[0];
+    var server = servers.shift();
     var self = this;
     server.hexists(this.data, key, function (err, reply) {
         if (err)
-            self._sync(value, key, servers, callback);
+            self._sync(value, key, servers);
         else {
             var sub = redis.createClient(server.port, server.host,
                 server.options);
+            sub.on('error', function(message) {
+                self.run_callback(message);
+                sub.end();
+            });
             sub.subscribe(key, function () {
                 sub.on('message', function (channel, message) {
-                    callback(message);
+                    self.run_callback(undefined, message);
                     sub.end();
                 });
                 server.hset(self.data, key, value, function (err, reply) {
                     if (err)
-                        self._sync(value, key, servers, callback);
+                        self._sync(value, key, servers);
                 });
                 if (!reply) {
                     server.lpush(self.queue, key, function (err, reply) {
                         if (err) {
                             sub.end();
-                            self._sync(value, key, servers, callback);
+                            self._sync(value, key, servers);
                         }
                     });
                 }
             });
         }
     });
+}
+
+RedisQueue.prototype.flush = function () {
+    if (this.running || !this.hash.ready)
+        return;
+    var job = this.pending.shift();
+    if (!job)
+        return;
+    key = job[2];
+    if (key == null || key == undefined)
+        key = Math.random() * 4294967296;
+    this.running = true;
+    this.callback = job[3];
+    job[0].call(this, job[1], key, this.hash.getServers(key));
+}
+
+RedisQueue.prototype.run_callback = function () {
+    if (this.callback)
+        this.callback.apply(null, arguments);
+    this.running = false;
+    this.flush();
 }
 
 RedisQueue.prototype.work = function (callback) {
@@ -154,6 +195,10 @@ RedisQueue.prototype.work = function (callback) {
 RedisQueue.prototype._work = function (server, callback) {
     var self = this;
     server.brpop(self.queue, 0, function (err, key) {
+        if (err) {
+            self.emit('error', err);
+            return;
+        }
         key = key[1];
         server.hget(self.data, key, function (err, data) {
             server.hdel(self.data, key);
