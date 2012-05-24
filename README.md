@@ -4,6 +4,9 @@ Redis Utils
 A collection of utilities for node-redis, such as a hashing frontend and
 queue interface.
 
+    18:35 < godsflaw> it's the node bits one needs for using redis as a job processing queue
+
+
 Installation
 ============
 
@@ -22,16 +25,20 @@ Insert a key/value pair into the appropriate server after hasing a key.
 
 Insert data into a queue and wait for a response:
 
-    var cluster = [{host: '10.0.0.1'}, {host: '10.0.0.2'}];
-    var queue = new RedisQueue('test', cluster);
-    queue.on('ready', function () {
-        queue.sync('payload', null, function (result) {
-            console.log(result);
-            queue.quit();
-        });
+```javascript
+var cluster = [{host: '10.0.0.1'}, {host: '10.0.0.2'}];
+var queue = new RedisQueue('test', cluster);
+queue.on('ready', function () {
+    queue.sync('payload', null, function (result) {
+        console.log(result);
+        queue.quit();
     });
+});
+```
 
 Run a worker and return uppercase version of payload.
 
-    var worker = new RedisQueue('test', cluster);
-    worker.work(function (key, data, next) { next(data.toUpperCase()); });
+```javascript
+var worker = new RedisQueue('test', cluster);
+worker.work(function (key, data, next) { next(data.toUpperCase()); });
+```
