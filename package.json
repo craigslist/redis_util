@@ -1,0 +1,19 @@
+{
+    "name" : "redis_util",
+    "version" : "0.0.1",
+    "description" : "A collection of utilities for node-redis.",
+    "main" : "./index.js",
+    "keywords": [
+        "redis",
+        "hash",
+        "queue"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "http://github.com/godsflaw/redis_util.git"
+    },
+    "licenses": [ {
+       "type": "Apache2",
+       "url": "https://github.com/godsflaw/diablow/blob/master/LICENSE"
+    } ]
+}
