@@ -22,20 +22,20 @@ redis_hash.getServers(key)[0].set(key, 'some data for key');
 
 Insert data into a queue and wait for a response:
 
-    ```javascript
-    var cluster = [{host: '10.0.0.1'}, {host: '10.0.0.2'}];
-    var queue = new RedisQueue('test', cluster);
-    queue.on('ready', function () {
-        queue.sync('payload', null, function (result) {
-            console.log(result);
-            queue.quit();
-        });
+```javascript
+var cluster = [{host: '10.0.0.1'}, {host: '10.0.0.2'}];
+var queue = new RedisQueue('test', cluster);
+queue.on('ready', function () {
+    queue.sync('payload', null, function (result) {
+        console.log(result);
+        queue.quit();
     });
-    ```
+});
+```
 
 Run a worker and return uppercase version of payload.
 
-    ```javascript
-    var worker = new RedisQueue('test', cluster);
-    worker.work(function (key, data, next) { next(data.toUpperCase()); });
-    ```
+```javascript
+var worker = new RedisQueue('test', cluster);
+worker.work(function (key, data, next) { next(data.toUpperCase()); });
+```
