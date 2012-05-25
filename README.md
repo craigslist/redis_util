@@ -17,12 +17,12 @@ To install with [npm](http://github.com/isaacs/npm):
 Examples
 ========
 
-Insert a key/value pair into the appropriate server after hasing a key.
+Insert a key/value pair into the appropriate server after hashing a key.
 
 ```javascript
-    var key = 'test';
-    var redis_hash = new RedisHash([{host: '10.0.0.1'}, {host: '10.0.0.2'}]);
-    redis_hash.getServers(key)[0].set(key, 'some data for key');
+var key = 'test';
+var redis_hash = new RedisHash([{host: '10.0.0.1'}, {host: '10.0.0.2'}]);
+redis_hash.getServers(key)[0].set(key, 'some data for key');
 ```
 
 Insert data into a queue and wait for a response:
